@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -24,6 +24,7 @@
     padding: 28px 16px 60px;
   }
   .wrap { max-width: 920px; margin: 0 auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
   h1 { font-size: 22px; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
   .controls {
@@ -67,66 +68,153 @@
   .card .dl {
     display: block; text-align: center; text-decoration: none;
     background: var(--accent-2); color: #06231b; font-weight: 600;
-    padding: 10px; font-size: 13px;
+    padding: 10px; font-size: 13px; cursor: pointer;
   }
   .card .dl:hover { filter: brightness(1.08); }
-  .bar { display: flex; gap: 12px; margin-top: 18px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px; }
   .bar button {
     background: var(--accent); color: #fff; border: none; border-radius: 10px;
     padding: 11px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
   }
+  .bar button.alt { background: var(--accent-2); color: #06231b; }
   .bar button.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
   .bar button:disabled { opacity: .4; cursor: not-allowed; }
+  .count { color: var(--muted); font-size: 13px; }
   .hidden { display: none; }
   code { background: #11141a; padding: 2px 6px; border-radius: 5px; color: var(--accent-2); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>4:5 Image Resizer → 1080 × 1350</h1>
-  <p class="sub">ChatGPT ki tall image daalo, exact <code>1080 × 1350</code> (4:5) nikalo — <strong>bina kuch crop kiye</strong>. Sab kuch tumhare browser me — koi upload nahi hota.</p>
+  <div class="topbar">
+    <div>
+      <h1 id="t-title">4:5 Image Resizer → 1080 × 1350</h1>
+      <p class="sub" id="t-sub"></p>
+    </div>
+    <div>
+      <label id="t-langLabel">Language</label><br/>
+      <select id="lang">
+        <option value="hi">Hinglish</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
 
   <div class="controls">
     <div>
-      <label>Mode</label><br/>
+      <label id="t-modeLabel">Mode</label><br/>
       <div class="seg" id="modeSeg">
-        <button data-mode="blur" class="active">Blur Fill (no crop ✅)</button>
-        <button data-mode="contain">Solid Background (no crop)</button>
-        <button data-mode="cover">Smart Crop</button>
+        <button data-mode="blur" class="active" data-k="modeBlur"></button>
+        <button data-mode="contain" data-k="modeContain"></button>
+        <button data-mode="cover" data-k="modeCrop"></button>
       </div>
     </div>
     <div id="bgWrap" class="hidden">
-      <label>Background</label><br/>
+      <label id="t-bgLabel">Background</label><br/>
       <input type="color" id="bgColor" value="#000000" />
     </div>
     <div id="blurWrap">
-      <label>Blur strength</label><br/>
+      <label id="t-blurLabel">Blur strength</label><br/>
       <input type="range" id="blurAmt" min="10" max="80" value="40" />
     </div>
     <div>
-      <label>Format</label><br/>
+      <label id="t-fmtLabel">Format</label><br/>
       <select id="fmt">
-        <option value="image/jpeg">JPG (chhoti file)</option>
-        <option value="image/png">PNG (lossless)</option>
+        <option value="image/jpeg" data-k="fmtJpg"></option>
+        <option value="image/png" data-k="fmtPng"></option>
       </select>
     </div>
   </div>
 
   <div id="drop">
-    <p class="big"><strong>Click karo</strong> ya image yahan <strong>drag &amp; drop</strong> karo</p>
-    <p>Ek ya multiple images — dono chalega</p>
+    <p class="big" id="t-dropBig"></p>
+    <p id="t-dropSub"></p>
     <input type="file" id="file" accept="image/*" multiple class="hidden" />
   </div>
 
   <div class="bar hidden" id="actionBar">
-    <button id="downloadAll">⬇ Sab download karo</button>
-    <button id="clear" class="ghost">Clear</button>
+    <button id="downloadImages"></button>
+    <button id="downloadZip" class="alt"></button>
+    <button id="clear" class="ghost"></button>
+    <span class="count" id="count"></span>
   </div>
 
   <div class="grid" id="grid"></div>
 </div>
 
 <script>
+  /* ---------- i18n ---------- */
+  const I18N = {
+    en: {
+      sub: 'Drop your tall ChatGPT image, get exact <code>1080 × 1350</code> (4:5) — <strong>without cropping anything</strong>. Everything runs in your browser, nothing is uploaded.',
+      langLabel: 'Language',
+      modeLabel: 'Mode',
+      modeBlur: 'Blur Fill (no crop ✅)',
+      modeContain: 'Solid Background (no crop)',
+      modeCrop: 'Smart Crop',
+      bgLabel: 'Background',
+      blurLabel: 'Blur strength',
+      fmtLabel: 'Format',
+      fmtJpg: 'JPG (smaller file)',
+      fmtPng: 'PNG (lossless)',
+      dropBig: '<strong>Click</strong> or <strong>drag &amp; drop</strong> images here',
+      dropSub: 'One or many images — both work',
+      btnImages: '⬇ Download images (one by one)',
+      btnZip: '⬇ Download ZIP (all together)',
+      btnClear: 'Clear',
+      download: '⬇ Download',
+      arrow: '→ 1080×1350',
+      count: (n) => n + (n === 1 ? ' image' : ' images'),
+      zipBuilding: 'Building ZIP…'
+    },
+    hi: {
+      sub: 'ChatGPT ki tall image daalo, exact <code>1080 × 1350</code> (4:5) nikalo — <strong>bina kuch crop kiye</strong>. Sab kuch tumhare browser me — koi upload nahi hota.',
+      langLabel: 'Bhasha',
+      modeLabel: 'Mode',
+      modeBlur: 'Blur Fill (no crop ✅)',
+      modeContain: 'Solid Background (no crop)',
+      modeCrop: 'Smart Crop',
+      bgLabel: 'Background',
+      blurLabel: 'Blur strength',
+      fmtLabel: 'Format',
+      fmtJpg: 'JPG (chhoti file)',
+      fmtPng: 'PNG (lossless)',
+      dropBig: '<strong>Click karo</strong> ya image yahan <strong>drag &amp; drop</strong> karo',
+      dropSub: 'Ek ya multiple images — dono chalega',
+      btnImages: '⬇ Ek-ek karke download',
+      btnZip: '⬇ Sabki ZIP download karo',
+      btnClear: 'Clear',
+      download: '⬇ Download',
+      arrow: '→ 1080×1350',
+      count: (n) => n + (n === 1 ? ' image' : ' images'),
+      zipBuilding: 'ZIP ban rahi hai…'
+    }
+  };
+
+  let lang = 'hi';
+
+  function applyLang() {
+    const d = I18N[lang];
+    document.documentElement.lang = lang === 'hi' ? 'hi' : 'en';
+    document.getElementById('t-sub').innerHTML = d.sub;
+    document.getElementById('t-langLabel').textContent = d.langLabel;
+    document.getElementById('t-modeLabel').textContent = d.modeLabel;
+    document.getElementById('t-bgLabel').textContent = d.bgLabel;
+    document.getElementById('t-blurLabel').textContent = d.blurLabel;
+    document.getElementById('t-fmtLabel').textContent = d.fmtLabel;
+    document.getElementById('t-dropBig').innerHTML = d.dropBig;
+    document.getElementById('t-dropSub').textContent = d.dropSub;
+    document.getElementById('downloadImages').textContent = d.btnImages;
+    document.getElementById('downloadZip').textContent = d.btnZip;
+    document.getElementById('clear').textContent = d.btnClear;
+    document.querySelectorAll('[data-k]').forEach(el => {
+      el.textContent = d[el.dataset.k];
+    });
+    document.getElementById('count').textContent = d.count(items.length);
+    renderAll();
+  }
+
+  /* ---------- core ---------- */
   const TARGET_W = 1080, TARGET_H = 1350;
   const dropEl = document.getElementById('drop');
   const fileEl = document.getElementById('file');
@@ -134,14 +222,16 @@
   const fmtEl = document.getElementById('fmt');
   const bgWrap = document.getElementById('bgWrap');
   const bgColorEl = document.getElementById('bgColor');
+  const blurWrap = document.getElementById('blurWrap');
+  const blurAmtEl = document.getElementById('blurAmt');
   const modeSeg = document.getElementById('modeSeg');
   const actionBar = document.getElementById('actionBar');
+  const langEl = document.getElementById('lang');
 
   let mode = 'blur';
   let items = []; // { name, img }
 
-  const blurWrap = document.getElementById('blurWrap');
-  const blurAmtEl = document.getElementById('blurAmt');
+  langEl.addEventListener('change', () => { lang = langEl.value; applyLang(); });
 
   modeSeg.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
@@ -168,19 +258,23 @@
   fileEl.addEventListener('change', () => handleFiles(fileEl.files));
 
   document.getElementById('clear').addEventListener('click', () => {
-    items = []; renderAll();
+    items = []; updateCount(); renderAll();
   });
-  document.getElementById('downloadAll').addEventListener('click', () => {
+
+  document.getElementById('downloadImages').addEventListener('click', () => {
     document.querySelectorAll('.dl').forEach((a, i) => {
       setTimeout(() => a.click(), i * 250);
     });
   });
+
+  document.getElementById('downloadZip').addEventListener('click', downloadZip);
 
   function handleFiles(fileList) {
     [...fileList].filter(f => f.type.startsWith('image/')).forEach(f => {
       const img = new Image();
       img.onload = () => {
         items.push({ name: cleanName(f.name), img });
+        updateCount();
         renderAll();
       };
       img.src = URL.createObjectURL(f);
@@ -190,6 +284,10 @@
   function cleanName(n) {
     const base = n.replace(/\.[^.]+$/, '');
     return base + '_1080x1350';
+  }
+
+  function updateCount() {
+    document.getElementById('count').textContent = I18N[lang].count(items.length);
   }
 
   function process(img) {
@@ -203,40 +301,29 @@
     const targetRatio = TARGET_W / TARGET_H; // 0.8
 
     if (mode === 'cover') {
-      // crop source to 4:5, centered, then fill canvas
       let cropW, cropH;
-      if (sw / sh > targetRatio) {
-        cropH = sh; cropW = sh * targetRatio;
-      } else {
-        cropW = sw; cropH = sw / targetRatio;
-      }
+      if (sw / sh > targetRatio) { cropH = sh; cropW = sh * targetRatio; }
+      else { cropW = sw; cropH = sw / targetRatio; }
       const sx = (sw - cropW) / 2;
       const sy = (sh - cropH) / 2;
       ctx.drawImage(img, sx, sy, cropW, cropH, 0, 0, TARGET_W, TARGET_H);
     } else if (mode === 'blur') {
-      // blurred zoomed copy fills the frame, full sharp image centered on top
-      // 1) background: cover (fills frame) + blur
       const bgScale = Math.max(TARGET_W / sw, TARGET_H / sh);
       const bw = sw * bgScale, bh = sh * bgScale;
       ctx.filter = 'blur(' + blurAmtEl.value + 'px)';
       ctx.drawImage(img, 0, 0, sw, sh, (TARGET_W - bw) / 2, (TARGET_H - bh) / 2, bw, bh);
       ctx.filter = 'none';
-      // slight dark overlay so the sharp image pops
       ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.fillRect(0, 0, TARGET_W, TARGET_H);
-      // 2) foreground: full image, nothing cropped, fit inside
       const fScale = Math.min(TARGET_W / sw, TARGET_H / sh);
       const fw = sw * fScale, fh = sh * fScale;
       ctx.drawImage(img, 0, 0, sw, sh, (TARGET_W - fw) / 2, (TARGET_H - fh) / 2, fw, fh);
     } else {
-      // contain: fill bg, fit whole image inside (nothing cropped)
       ctx.fillStyle = bgColorEl.value;
       ctx.fillRect(0, 0, TARGET_W, TARGET_H);
       const scale = Math.min(TARGET_W / sw, TARGET_H / sh);
       const dw = sw * scale, dh = sh * scale;
-      const dx = (TARGET_W - dw) / 2;
-      const dy = (TARGET_H - dh) / 2;
-      ctx.drawImage(img, 0, 0, sw, sh, dx, dy, dw, dh);
+      ctx.drawImage(img, 0, 0, sw, sh, (TARGET_W - dw) / 2, (TARGET_H - dh) / 2, dw, dh);
     }
     return canvas;
   }
@@ -251,17 +338,120 @@
       const url = canvas.toDataURL(fmt, 0.95);
       const card = document.createElement('div');
       card.className = 'card';
-      card.innerHTML = `
-        <div class="preview"><img src="${url}" alt=""></div>
-        <div class="meta">
-          <span>${it.img.naturalWidth}×${it.img.naturalHeight}</span>
-          <span>→ 1080×1350</span>
-        </div>
-        <a class="dl" href="${url}" download="${it.name}.${ext}">⬇ Download</a>
-      `;
+      card.innerHTML =
+        '<div class="preview"><img src="' + url + '" alt=""></div>' +
+        '<div class="meta"><span>' + it.img.naturalWidth + '×' + it.img.naturalHeight + '</span>' +
+        '<span>' + I18N[lang].arrow + '</span></div>' +
+        '<a class="dl" href="' + url + '" download="' + it.name + '.' + ext + '">' + I18N[lang].download + '</a>';
       grid.appendChild(card);
     });
   }
+
+  /* ---------- canvas -> bytes ---------- */
+  function canvasToBytes(canvas, fmt, q) {
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        blob.arrayBuffer().then((ab) => resolve(new Uint8Array(ab)));
+      }, fmt, q);
+    });
+  }
+
+  /* ---------- minimal ZIP (store, no compression) — fully offline ---------- */
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(buf) {
+    let crc = -1;
+    for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ buf[i]) & 0xFF];
+    return (crc ^ -1) >>> 0;
+  }
+  function buildZip(files) {
+    const enc = new TextEncoder();
+    const chunks = [];
+    const central = [];
+    let offset = 0;
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const u16 = (a, v) => a.push(v & 0xff, (v >>> 8) & 0xff);
+    const u32 = (a, v) => a.push(v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff);
+
+    files.forEach((f) => {
+      const nameBytes = enc.encode(f.name);
+      const data = f.bytes;
+      const crc = crc32(data);
+      const lh = [];
+      u32(lh, 0x04034b50); u16(lh, 20); u16(lh, 0); u16(lh, 0);
+      u16(lh, dosTime); u16(lh, dosDate);
+      u32(lh, crc); u32(lh, data.length); u32(lh, data.length);
+      u16(lh, nameBytes.length); u16(lh, 0);
+      const lhArr = new Uint8Array(lh);
+      chunks.push(lhArr, nameBytes, data);
+
+      u32(central, 0x02014b50); u16(central, 20); u16(central, 20); u16(central, 0); u16(central, 0);
+      u16(central, dosTime); u16(central, dosDate);
+      u32(central, crc); u32(central, data.length); u32(central, data.length);
+      u16(central, nameBytes.length); u16(central, 0); u16(central, 0);
+      u16(central, 0); u16(central, 0); u32(central, 0); u32(central, offset);
+      for (let i = 0; i < nameBytes.length; i++) central.push(nameBytes[i]);
+
+      offset += lhArr.length + nameBytes.length + data.length;
+    });
+
+    const centralArr = new Uint8Array(central);
+    const eocd = [];
+    u32(eocd, 0x06054b50); u16(eocd, 0); u16(eocd, 0);
+    u16(eocd, files.length); u16(eocd, files.length);
+    u32(eocd, centralArr.length); u32(eocd, offset); u16(eocd, 0);
+
+    chunks.push(centralArr, new Uint8Array(eocd));
+    return new Blob(chunks, { type: 'application/zip' });
+  }
+
+  async function downloadZip() {
+    if (items.length === 0) return;
+    const btn = document.getElementById('downloadZip');
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = I18N[lang].zipBuilding;
+
+    const fmt = fmtEl.value;
+    const ext = fmt === 'image/png' ? 'png' : 'jpg';
+    const used = {};
+    const files = [];
+
+    for (const it of items) {
+      const canvas = process(it.img);
+      const bytes = await canvasToBytes(canvas, fmt, 0.95);
+      let name = it.name + '.' + ext;
+      if (used[name]) { used[name]++; name = it.name + '_' + used[it.name + '.' + ext] + '.' + ext; }
+      else { used[it.name + '.' + ext] = 1; }
+      files.push({ name, bytes });
+    }
+
+    const blob = buildZip(files);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'images_1080x1350.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+
+  /* ---------- init ---------- */
+  langEl.value = lang;
+  applyLang();
 </script>
 </body>
 </html>
